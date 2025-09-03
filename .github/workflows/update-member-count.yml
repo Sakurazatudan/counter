@@ -1,0 +1,35 @@
+name: Update Member Count
+
+on:
+  schedule:
+    - cron: "*/10 * * * *" # 10分ごと
+  workflow_dispatch: # 手動実行も可能
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "18"
+
+      - name: Install dependencies
+        run: npm install node-fetch@2
+
+      - name: Fetch Discord Member Count
+        run: node fetch-member-count.js
+        env:
+          GUILD_ID: ${{ secrets.GUILD_ID }}
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+
+      - name: Commit & Push
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add member_count.json
+          git commit -m "Update member count"
+          git push
