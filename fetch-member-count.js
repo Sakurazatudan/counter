@@ -17,27 +17,25 @@ async function main() {
       }
     );
 
-    const data = await response.json();
+   const data = await response.json();
 
-    if (data.approximate_member_count !== undefined) {
-      const count = data.approximate_member_count;
+if (data.approximate_member_count !== undefined) {
+  const count = data.approximate_member_count;
 
-      // JSONに書き出し
-      const output = {
-        count,
-        updated: new Date().toISOString()
-      };
+  // JSTに変換
+  const now = new Date();
+  const jstTime = new Date(now.getTime() + 9*60*60*1000); // UTC +9時間
+  const formatted = jstTime.toISOString().replace('T', ' ').split('.')[0];
 
-      fs.writeFileSync("member_count.json", JSON.stringify(output, null, 2));
-      console.log(`✅ メンバー数更新: ${count}`);
-    } else {
-      console.error("❌ メンバー数取得失敗:", data);
-      process.exit(1);
-    }
-  } catch (err) {
-    console.error("❌ エラー:", err);
-    process.exit(1);
-  }
+  // JSONに書き出し
+  const output = {
+    count,
+    updated: formatted // "2025-09-03 18:00:00" みたいにJSTで表示
+  };
+
+  // ファイル書き込み
+  const fs = require('fs');
+  fs.writeFileSync('member_count.json', JSON.stringify(output, null, 2), 'utf-8');
 }
 
 main();
