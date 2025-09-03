@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>さくら雑談王国 - カウンター</title>
+<title>落ちる桜の木</title>
 <style>
 body { margin:0; overflow:hidden; background:#111; }
 canvas { display:block; }
@@ -13,106 +13,100 @@ canvas { display:block; }
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.158/build/three.module.js';
 
 let scene, camera, renderer;
-let earthGroup, waterGroup;
+let treeGroup, petals = [];
 
 init();
 animate();
 
-function init() {
+function init(){
     scene = new THREE.Scene();
 
     camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 100);
     camera.position.set(3,3,5);
-    camera.lookAt(0,0,0);
+    camera.lookAt(0,1,0);
 
     renderer = new THREE.WebGLRenderer({antialias:true});
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
-    const light = new THREE.DirectionalLight(0xffffff, 1);
+    const light = new THREE.DirectionalLight(0xffffff,1);
     light.position.set(5,5,5);
     scene.add(light);
 
-    earthGroup = new THREE.Group();
-    scene.add(earthGroup);
+    treeGroup = new THREE.Group();
+    scene.add(treeGroup);
 
-    waterGroup = new THREE.Group();
-    earthGroup.add(waterGroup);
-
-    createEarthBlocks();
+    createTrunk();
 }
 
-// 四角グリッドで陸ブロック作成
-function createEarthBlocks(){
-    const gridSize = 16; // 16x16x16ブロック
+// 幹作成（固定）
+function createTrunk(){
     const blockSize = 0.2;
-
-    for(let x=0; x<gridSize; x++){
-        for(let z=0; z<gridSize; z++){
-            const landHeight = Math.floor(Math.random()*8 + 4); // 4~11ブロックの高さ
-            for(let y=0; y<landHeight; y++){
-                const geometry = new THREE.BoxGeometry(blockSize, blockSize, blockSize);
-                const material = new THREE.MeshStandardMaterial({color:0x228B22});
-                const cube = new THREE.Mesh(geometry, material);
-                cube.position.set(
-                    (x-gridSize/2)*blockSize,
-                    (y-gridSize/2)*blockSize,
-                    (z-gridSize/2)*blockSize
-                );
-                earthGroup.add(cube);
-            }
-        }
+    const trunkHeight = 5;
+    for(let y=0; y<trunkHeight; y++){
+        const geometry = new THREE.BoxGeometry(blockSize, blockSize, blockSize);
+        const material = new THREE.MeshStandardMaterial({color:0x8B4513});
+        const cube = new THREE.Mesh(geometry, material);
+        cube.position.set(0, y*blockSize, 0);
+        treeGroup.add(cube);
     }
 }
 
-// 水ブロック描画
-async function updateWaterLevel(ratio){
-    while(waterGroup.children.length) waterGroup.remove(waterGroup.children[0]);
-
-    const gridSize = 16;
+// 花びら生成
+function spawnPetal(maxHeight=3){
     const blockSize = 0.2;
-    const waterHeight = Math.floor(ratio * gridSize);
+    const geometry = new THREE.BoxGeometry(blockSize, blockSize, blockSize);
+    const material = new THREE.MeshStandardMaterial({color:0xFFC0CB, transparent:true, opacity:0.8});
+    const petal = new THREE.Mesh(geometry, material);
 
-    for(let x=0; x<gridSize; x++){
-        for(let z=0; z<gridSize; z++){
-            for(let y=0; y<waterHeight; y++){
-                const geometry = new THREE.BoxGeometry(blockSize, blockSize, blockSize);
-                const material = new THREE.MeshStandardMaterial({color:0x1E90FF, transparent:true, opacity:0.6});
-                const cube = new THREE.Mesh(geometry, material);
-                cube.position.set(
-                    (x-gridSize/2)*blockSize,
-                    (y-gridSize/2)*blockSize,
-                    (z-gridSize/2)*blockSize
-                );
-                waterGroup.add(cube);
-            }
-        }
-    }
+    // x,zはランダム、yは幹の上
+    petal.position.set(
+        (Math.random()-0.5)*2, 
+        5*blockSize + Math.random()*maxHeight, 
+        (Math.random()-0.5)*2
+    );
+    petal.velocityY = 0; // 落下速度
+    petals.push(petal);
+    treeGroup.add(petal);
 }
 
-// JSONから人数割合取得
-async function fetchMemberRatio(){
+// JSONから人数取得して花びら生成
+async function generatePetals(){
     try{
         const res = await fetch('member_count.json');
         const data = await res.json();
         const maxMembers = 1000;
-        return Math.min(data.count / maxMembers, 1);
+        const ratio = Math.min(data.count/maxMembers,1);
+        const targetPetals = Math.floor(ratio*200); // 最大200枚
+
+        while(petals.length < targetPetals){
+            spawnPetal();
+        }
     }catch(e){
         console.error(e);
-        return 0;
     }
 }
 
-async function animate(){
+function animate(){
     requestAnimationFrame(animate);
 
-    earthGroup.rotation.y += 0.002;
-    earthGroup.position.y = Math.sin(Date.now()*0.001)*0.2;
+    treeGroup.rotation.y += 0.002;
+    treeGroup.position.y = Math.sin(Date.now()*0.001)*0.1;
 
-    const ratio = await fetchMemberRatio();
-    updateWaterLevel(ratio);
+    // 花びら落下
+    petals.forEach(p => {
+        p.velocityY -= 0.001; // 重力っぽく
+        p.position.y += p.velocityY;
 
-    renderer.render(scene, camera);
+        if(p.position.y < 0){ // 地面に到達したら止める
+            p.position.y = 0;
+            p.velocityY = 0;
+        }
+    });
+
+    generatePetals();
+
+    renderer.render(scene,camera);
 }
 </script>
 </body>
