@@ -37,5 +37,5 @@ if (data.approximate_member_count !== undefined) {
   const fs = require('fs');
   fs.writeFileSync('member_count.json', JSON.stringify(output, null, 2), 'utf-8');
 }
-  } }
+   }
 main();
