@@ -2,112 +2,88 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>落ちる桜の木</title>
+<title>桜落下アニメ</title>
 <style>
-body { margin:0; overflow:hidden; background:#111; }
-canvas { display:block; }
+  body { margin:0; overflow:hidden; background:#87CEEB; }
+  canvas { display:block; }
 </style>
 </head>
 <body>
-<script type="module">
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.158/build/three.module.js';
+<canvas id="canvas"></canvas>
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
 
-let scene, camera, renderer;
-let treeGroup, petals = [];
+const petals = [];
+const maxPetals = 200;
 
-init();
-animate();
+// 背景の木画像
+const treeImg = new Image();
+treeImg.src = 'tree.png'; // 自分で用意する木の画像
 
-function init(){
-    scene = new THREE.Scene();
-
-    camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 100);
-    camera.position.set(3,3,5);
-    camera.lookAt(0,1,0);
-
-    renderer = new THREE.WebGLRenderer({antialias:true});
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    document.body.appendChild(renderer.domElement);
-
-    const light = new THREE.DirectionalLight(0xffffff,1);
-    light.position.set(5,5,5);
-    scene.add(light);
-
-    treeGroup = new THREE.Group();
-    scene.add(treeGroup);
-
-    createTrunk();
-}
-
-// 幹作成（固定）
-function createTrunk(){
-    const blockSize = 0.2;
-    const trunkHeight = 5;
-    for(let y=0; y<trunkHeight; y++){
-        const geometry = new THREE.BoxGeometry(blockSize, blockSize, blockSize);
-        const material = new THREE.MeshStandardMaterial({color:0x8B4513});
-        const cube = new THREE.Mesh(geometry, material);
-        cube.position.set(0, y*blockSize, 0);
-        treeGroup.add(cube);
-    }
-}
+// 花びら画像
+const petalImg = new Image();
+petalImg.src = 'petal.png'; // 自分で用意する花びら画像
 
 // 花びら生成
-function spawnPetal(maxHeight=3){
-    const blockSize = 0.2;
-    const geometry = new THREE.BoxGeometry(blockSize, blockSize, blockSize);
-    const material = new THREE.MeshStandardMaterial({color:0xFFC0CB, transparent:true, opacity:0.8});
-    const petal = new THREE.Mesh(geometry, material);
-
-    // x,zはランダム、yは幹の上
-    petal.position.set(
-        (Math.random()-0.5)*2, 
-        5*blockSize + Math.random()*maxHeight, 
-        (Math.random()-0.5)*2
-    );
-    petal.velocityY = 0; // 落下速度
-    petals.push(petal);
-    treeGroup.add(petal);
+function spawnPetal() {
+    const p = {
+        x: Math.random() * canvas.width,
+        y: -20,
+        size: Math.random()*20 + 10,
+        speed: Math.random()*1 + 0.5,
+        angle: Math.random()*Math.PI*2,
+        angularSpeed: (Math.random()-0.5)*0.02
+    };
+    petals.push(p);
 }
 
-// JSONから人数取得して花びら生成
-async function generatePetals(){
-    try{
+// JSONから人数に応じて花びら生成
+async function updatePetals() {
+    try {
         const res = await fetch('member_count.json');
         const data = await res.json();
         const maxMembers = 1000;
         const ratio = Math.min(data.count/maxMembers,1);
-        const targetPetals = Math.floor(ratio*200); // 最大200枚
+        const target = Math.floor(ratio * maxPetals);
 
-        while(petals.length < targetPetals){
+        while(petals.length < target){
             spawnPetal();
         }
-    }catch(e){
+    } catch(e){
         console.error(e);
     }
 }
 
+// 描画ループ
 function animate(){
-    requestAnimationFrame(animate);
+    ctx.clearRect(0,0,canvas.width,canvas.height);
 
-    treeGroup.rotation.y += 0.002;
-    treeGroup.position.y = Math.sin(Date.now()*0.001)*0.1;
+    // 背景の木
+    ctx.drawImage(treeImg, canvas.width/2 - treeImg.width/2, canvas.height - treeImg.height);
 
-    // 花びら落下
-    petals.forEach(p => {
-        p.velocityY -= 0.001; // 重力っぽく
-        p.position.y += p.velocityY;
+    // 花びら更新＆描画
+    petals.forEach(p=>{
+        p.y += p.speed;
+        p.x += Math.sin(p.angle)*0.5;
+        p.angle += p.angularSpeed;
 
-        if(p.position.y < 0){ // 地面に到達したら止める
-            p.position.y = 0;
-            p.velocityY = 0;
-        }
+        ctx.save();
+        ctx.translate(p.x,p.y);
+        ctx.rotate(p.angle);
+        ctx.drawImage(petalImg, -p.size/2, -p.size/2, p.size, p.size);
+        ctx.restore();
     });
 
-    generatePetals();
-
-    renderer.render(scene,camera);
+    requestAnimationFrame(animate);
 }
+
+// 1秒ごとに人数確認
+setInterval(updatePetals,1000);
+
+animate();
 </script>
 </body>
 </html>
