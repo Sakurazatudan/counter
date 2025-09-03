@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>マイクラ風地球</title>
+  <style>
+    body { margin:0; overflow:hidden; background:#111; }
+    canvas { display:block; }
+  </style>
+</head>
+<body>
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.158/build/three.module.js';
+
+let scene, camera, renderer;
+let earthGroup, waterGroup;
+
+init();
+animate();
+
+function init() {
+    scene = new THREE.Scene();
+
+    camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 100);
+    camera.position.set(2, 2, 2);
+    camera.lookAt(0,0,0);
+
+    renderer = new THREE.WebGLRenderer({antialias:true});
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    const light = new THREE.DirectionalLight(0xffffff, 1);
+    light.position.set(5,5,5);
+    scene.add(light);
+
+    earthGroup = new THREE.Group();
+    scene.add(earthGroup);
+
+    waterGroup = new THREE.Group();
+    earthGroup.add(waterGroup);
+
+    createEarthBlocks();
+}
+
+// ブロック地球（陸のみ）
+function createEarthBlocks() {
+    const radius = 1;
+    const blockSize = 0.05;
+    const segments = 16;
+
+    for(let phi=0; phi<Math.PI; phi+=Math.PI/segments){
+        for(let theta=0; theta<2*Math.PI; theta+=Math.PI/segments){
+            const x = radius * Math.sin(phi) * Math.cos(theta);
+            const y = radius * Math.cos(phi);
+            const z = radius * Math.sin(phi) * Math.sin(theta);
+
+            const isLand = Math.random() < 0.7;
+            if(isLand){
+                const geometry = new THREE.BoxGeometry(blockSize, blockSize, blockSize);
+                const material = new THREE.MeshStandardMaterial({color:0x228B22});
+                const cube = new THREE.Mesh(geometry, material);
+                cube.position.set(x, y, z);
+                earthGroup.add(cube);
+            }
+        }
+    }
+}
+
+// 水ブロック描画（人数連動）
+async function updateWaterLevel(ratio){
+    while(waterGroup.children.length) waterGroup.remove(waterGroup.children[0]);
+
+    const radius = 1;
+    const blockSize = 0.05;
+    const segments = 16;
+    const waterHeight = Math.floor(ratio * segments);
+
+    for(let phi=0; phi<Math.PI; phi+=Math.PI/segments){
+        for(let theta=0; theta<2*Math.PI; theta+=Math.PI/segments){
+            const yIndex = Math.floor(Math.cos(phi)*segments/2 + segments/2);
+            if(yIndex > segments - waterHeight) continue;
+
+            const x = radius * Math.sin(phi) * Math.cos(theta);
+            const y = radius * Math.cos(phi);
+            const z = radius * Math.sin(phi) * Math.sin(theta);
+
+            const geometry = new THREE.BoxGeometry(blockSize, blockSize, blockSize);
+            const material = new THREE.MeshStandardMaterial({color:0x1E90FF, transparent:true, opacity:0.6});
+            const cube = new THREE.Mesh(geometry, material);
+            cube.position.set(x, y, z);
+            waterGroup.add(cube);
+        }
+    }
+}
+
+// JSONから人数割合取得
+async function fetchMemberRatio(){
+    try {
+        const res = await fetch('member_count.json');
+        const data = await res.json();
+        const maxMembers = 1000; // 最大人数
+        return Math.min(data.count / maxMembers, 1);
+    } catch(e) {
+        console.error(e);
+        return 0; // 取得失敗時は0
+    }
+}
+
+async function animate(){
+    requestAnimationFrame(animate);
+
+    earthGroup.rotation.y += 0.002;
+    earthGroup.position.y = Math.sin(Date.now()*0.001)*0.2;
+
+    const ratio = await fetchMemberRatio();
+    updateWaterLevel(ratio);
+
+    renderer.render(scene, camera);
+}
+</script>
+</body>
+</html>
