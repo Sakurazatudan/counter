@@ -29,7 +29,7 @@ jobs:
       - name: Commit & Push
         run: |
           git config user.name "Sakurazatudan"
-          git config user.email "actions@github.com"
+          git config user.email "Jiken7777@gmail.com"
           git add member_count.json
           git commit -m "Update member count"
           git push
