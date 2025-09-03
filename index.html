@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <title>マイクラ風地球</title>
-  <style>
-    body { margin:0; overflow:hidden; background:#111; }
-    canvas { display:block; }
-  </style>
+<meta charset="UTF-8">
+<title>四角ブロック地球</title>
+<style>
+body { margin:0; overflow:hidden; background:#111; }
+canvas { display:block; }
+</style>
 </head>
 <body>
 <script type="module">
@@ -22,7 +22,7 @@ function init() {
     scene = new THREE.Scene();
 
     camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 100);
-    camera.position.set(2, 2, 2);
+    camera.position.set(3,3,5);
     camera.lookAt(0,0,0);
 
     renderer = new THREE.WebGLRenderer({antialias:true});
@@ -42,67 +42,64 @@ function init() {
     createEarthBlocks();
 }
 
-// ブロック地球（陸のみ）
-function createEarthBlocks() {
-    const radius = 1;
-    const blockSize = 0.05;
-    const segments = 16;
+// 四角グリッドで陸ブロック作成
+function createEarthBlocks(){
+    const gridSize = 16; // 16x16x16ブロック
+    const blockSize = 0.2;
 
-    for(let phi=0; phi<Math.PI; phi+=Math.PI/segments){
-        for(let theta=0; theta<2*Math.PI; theta+=Math.PI/segments){
-            const x = radius * Math.sin(phi) * Math.cos(theta);
-            const y = radius * Math.cos(phi);
-            const z = radius * Math.sin(phi) * Math.sin(theta);
-
-            const isLand = Math.random() < 0.7;
-            if(isLand){
+    for(let x=0; x<gridSize; x++){
+        for(let z=0; z<gridSize; z++){
+            const landHeight = Math.floor(Math.random()*8 + 4); // 4~11ブロックの高さ
+            for(let y=0; y<landHeight; y++){
                 const geometry = new THREE.BoxGeometry(blockSize, blockSize, blockSize);
                 const material = new THREE.MeshStandardMaterial({color:0x228B22});
                 const cube = new THREE.Mesh(geometry, material);
-                cube.position.set(x, y, z);
+                cube.position.set(
+                    (x-gridSize/2)*blockSize,
+                    (y-gridSize/2)*blockSize,
+                    (z-gridSize/2)*blockSize
+                );
                 earthGroup.add(cube);
             }
         }
     }
 }
 
-// 水ブロック描画（人数連動）
+// 水ブロック描画
 async function updateWaterLevel(ratio){
     while(waterGroup.children.length) waterGroup.remove(waterGroup.children[0]);
 
-    const radius = 1;
-    const blockSize = 0.05;
-    const segments = 16;
-    const waterHeight = Math.floor(ratio * segments);
+    const gridSize = 16;
+    const blockSize = 0.2;
+    const waterHeight = Math.floor(ratio * gridSize);
 
-    for(let phi=0; phi<Math.PI; phi+=Math.PI/segments){
-        for(let theta=0; theta<2*Math.PI; theta+=Math.PI/segments){
-            const yIndex = Math.floor(Math.cos(phi)*segments/2 + segments/2);
-            if(yIndex > segments - waterHeight) continue;
-
-            const x = radius * Math.sin(phi) * Math.cos(theta);
-            const y = radius * Math.cos(phi);
-            const z = radius * Math.sin(phi) * Math.sin(theta);
-
-            const geometry = new THREE.BoxGeometry(blockSize, blockSize, blockSize);
-            const material = new THREE.MeshStandardMaterial({color:0x1E90FF, transparent:true, opacity:0.6});
-            const cube = new THREE.Mesh(geometry, material);
-            cube.position.set(x, y, z);
-            waterGroup.add(cube);
+    for(let x=0; x<gridSize; x++){
+        for(let z=0; z<gridSize; z++){
+            for(let y=0; y<waterHeight; y++){
+                const geometry = new THREE.BoxGeometry(blockSize, blockSize, blockSize);
+                const material = new THREE.MeshStandardMaterial({color:0x1E90FF, transparent:true, opacity:0.6});
+                const cube = new THREE.Mesh(geometry, material);
+                cube.position.set(
+                    (x-gridSize/2)*blockSize,
+                    (y-gridSize/2)*blockSize,
+                    (z-gridSize/2)*blockSize
+                );
+                waterGroup.add(cube);
+            }
         }
     }
 }
 
 // JSONから人数割合取得
 async function fetchMemberRatio(){
-    try {
+    try{
         const res = await fetch('member_count.json');
         const data = await res.json();
-        const maxMembers = 1000; // 最大人数
+        const maxMembers = 1000;
         return Math.min(data.count / maxMembers, 1);
-    } catch(e) {
+    }catch(e){
         console.error(e);
-        return 0; // 取得失敗時は0
+        return 0;
     }
 }
 
