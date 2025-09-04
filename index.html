@@ -35,7 +35,7 @@ const hatoAgeImg = new Image();
 hatoAgeImg.src = 'hatoage_only.png';
 
 let count = 0;   // JSONの人数
-let hato = { x: canvas.width/2 - 16, y: -50, state: "raw" };
+let hato = { x: canvas.width/2 - 32, y: -80, size: 64, state: "raw" };
 let phase = "drop"; // drop → fry → fall → fade → pile
 let fadeOpacity = 1.0;
 
@@ -47,7 +47,7 @@ async function updateCount() {
     count = Math.min(data.count, 1000);
   } catch (e) {
     console.error(e);
-    count = 123; // デモ用仮値
+    count = 120; // デモ用仮値
   }
 }
 updateCount();
@@ -56,31 +56,32 @@ function draw() {
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
   if (phase!=="pile") {
-    // 製造ライン（灰色＋火花）
+    // 🔥オレンジ火花（背面）
+    for(let i=0;i<30;i++){
+      ctx.fillStyle = `rgba(255,165,0,${Math.random()*0.6})`;
+      ctx.fillRect(Math.random()*canvas.width, canvas.height/2 - 20 + Math.random()*40, 3, 3);
+    }
+    // 灰色の棒（前面・細め）
     ctx.globalAlpha = fadeOpacity;
     ctx.fillStyle = "#555";
-    ctx.fillRect(0, canvas.height/2 - 20, canvas.width, 40);
+    ctx.fillRect(0, canvas.height/2 - 10, canvas.width, 20);
     ctx.globalAlpha = 1;
-    for(let i=0;i<20;i++){
-      ctx.fillStyle = `rgba(255,165,0,${Math.random()})`;
-      ctx.fillRect(Math.random()*canvas.width, canvas.height/2 - 20 + Math.random()*40, 2, 2);
-    }
   }
 
   if (phase==="drop") {
-    hato.y += 4;
-    ctx.drawImage(hatoImg, hato.x, hato.y, 32, 32);
+    hato.y += 5;
+    ctx.drawImage(hatoImg, hato.x, hato.y, hato.size, hato.size);
     if (hato.y >= canvas.height/2 - 40) {
       phase = "fry";
     }
 
   } else if (phase==="fry") {
-    ctx.drawImage(hatoAgeImg, hato.x, hato.y, 32, 32);
+    ctx.drawImage(hatoAgeImg, hato.x, hato.y, hato.size, hato.size);
     setTimeout(()=>{ phase="fall"; }, 500);
 
   } else if (phase==="fall") {
-    hato.y += 5;
-    ctx.drawImage(hatoAgeImg, hato.x, hato.y, 32, 32);
+    hato.y += 6;
+    ctx.drawImage(hatoAgeImg, hato.x, hato.y, hato.size, hato.size);
     if (hato.y > canvas.height) {
       phase = "fade";
     }
@@ -89,23 +90,32 @@ function draw() {
     fadeOpacity -= 0.02;
     ctx.globalAlpha = fadeOpacity;
     ctx.fillStyle = "#555";
-    ctx.fillRect(0, canvas.height/2 - 20, canvas.width, 40);
+    ctx.fillRect(0, canvas.height/2 - 10, canvas.width, 20);
     ctx.globalAlpha = 1;
     if (fadeOpacity<=0) {
       phase="pile";
     }
 
   } else if (phase==="pile") {
-    // 山積み
-    const baseY = canvas.height - 150;
-    const size = 32;
-    for(let i=0;i<count;i++){
-      const layer = Math.floor(i / 20);
-      const offsetX = (i % 20) * (size+2) - (20*(size+2))/2;
-      const x = canvas.width/2 + offsetX + Math.random()*3;
-      const y = baseY - layer * (size/1.5) - Math.random()*3;
-      ctx.drawImage(hatoAgeImg, x, y, size, size);
+    // 📦 二等辺三角形に山積み
+    const size = 48; // 山積みサイズ（大きめ）
+    const baseY = canvas.height - 80;
+    const maxPerRow = Math.floor(Math.sqrt(count*2)); // 三角形の行数を決定
+    let placed = 0;
+
+    for (let row=0; row<maxPerRow; row++) {
+      const numInRow = row+1;
+      if (placed + numInRow > count) break;
+      const startX = canvas.width/2 - (numInRow * size)/2;
+      const y = baseY - row * (size*0.9);
+      for (let col=0; col<numInRow; col++) {
+        if (placed >= count) break;
+        const x = startX + col * size;
+        ctx.drawImage(hatoAgeImg, x, y, size, size);
+        placed++;
+      }
     }
+
     // メッセージ
     if(count>=1000){
       message.textContent="🎉 はとあげ完成！ 🎉";
@@ -117,59 +127,6 @@ function draw() {
   requestAnimationFrame(draw);
 }
 draw();
-</script>
-</body>
-</html>
-        angle: Math.random()*Math.PI*2,
-        angularSpeed: (Math.random()-0.5)*0.02
-    };
-    petals.push(p);
-}
-
-// JSONから人数に応じて花びら生成
-async function updatePetals() {
-    try {
-        const res = await fetch('member_count.json');
-        const data = await res.json();
-        const maxMembers = 1000;
-        const ratio = Math.min(data.count/maxMembers,1);
-        const target = Math.floor(ratio * maxPetals);
-
-        while(petals.length < target){
-            spawnPetal();
-        }
-    } catch(e){
-        console.error(e);
-    }
-}
-
-// 描画ループ
-function animate(){
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-
-    // 背景の木
-    ctx.drawImage(treeImg, canvas.width/2 - treeImg.width/2, canvas.height - treeImg.height);
-
-    // 花びら更新＆描画
-    petals.forEach(p=>{
-        p.y += p.speed;
-        p.x += Math.sin(p.angle)*0.5;
-        p.angle += p.angularSpeed;
-
-        ctx.save();
-        ctx.translate(p.x,p.y);
-        ctx.rotate(p.angle);
-        ctx.drawImage(petalImg, -p.size/2, -p.size/2, p.size, p.size);
-        ctx.restore();
-    });
-
-    requestAnimationFrame(animate);
-}
-
-// 1秒ごとに人数確認
-setInterval(updatePetals,1000);
-
-animate();
 </script>
 </body>
 </html>
