@@ -14,7 +14,7 @@ canvas { display:block; }
   font-size:2em;
   color:#fff;
   font-family:sans-serif;
-  text-shadow: 1px 1px 3px #000;
+  text-shadow:1px 1px 3px #000;
 }
 </style>
 </head>
@@ -34,15 +34,16 @@ hatoImg.src = "hato.png";
 const hatoAgeImg = new Image();
 hatoAgeImg.src = "hatoage_only.png";
 
-let count = 0;
-let phase = "drop"; // drop → fry → fall → fade → pile
+let count = 0;           // JSON人数
+let fallenCount = 0;     // 落ちたはとあげ数
+let phase = "drop";      // drop → fry → fall → fade → pile
 let fadeOpacity = 1.0;
 
-let hato = { x: canvas.width/2-32, y: -80, size: 64, state:"raw" };
+let hato = { x: canvas.width/2-32, y: -80, size:64 };
 let pile = [];
 let falling = [];
 
-// JSON fetch
+// fetch人数
 async function fetchCount() {
   try {
     const res = await fetch("member_count.json?" + new Date().getTime());
@@ -50,99 +51,95 @@ async function fetchCount() {
     count = Math.min(data.count, 1000);
   } catch (e) {
     console.error(e);
-    count = 123; // デモ用
+    count = 123; // デモ
   }
 }
 fetchCount();
 
-// 1羽が山に落ちる
+// 製造ライン
 function spawnFalling() {
   if (pile.length + falling.length < count) {
     falling.push({
-      x: canvas.width/2 + (Math.random()*100-50),
+      x: canvas.width/2 + (Math.random()*40-20),
       y: -50,
-      size: 48,
-      speed: 5 + Math.random()*2
+      size: 64,
+      speed: 2 + Math.random()*1 // ゆっくり落下
     });
+    fallenCount++;
   }
 }
-setInterval(spawnFalling, 200);
+setInterval(spawnFalling, 200); 
 
 function update() {
   // 落下処理
   for (let i=falling.length-1; i>=0; i--) {
     let f = falling[i];
     f.y += f.speed;
-    if (f.y > canvas.height-80 - pile.length*0.2) { 
-      pile.push({
-        x: f.x + (Math.random()*20-10),
-        y: canvas.height-80 - pile.length*0.2,
-        size: f.size
-      });
+    const row = Math.floor(pile.length/20); // 三角形に積む簡易版
+    const col = pile.length % 20;
+    const baseY = canvas.height - 100;
+    const xOffset = canvas.width/2 - row*32 + col*32 + (Math.random()*10-5);
+    const yOffset = baseY - row*32;
+
+    if (f.y > yOffset) {
+      pile.push({x:xOffset, y:yOffset, size:f.size});
       falling.splice(i,1);
     }
   }
 
-  // 製造ライン → フェーズ制御
-  if (phase === "drop") {
-    hato.y += 5;
-    if (hato.y >= canvas.height/2 - 40) phase = "fry";
+  // 製造ラインフェード
+  if (phase==="drop") {
+    hato.y += 3;
+    if (hato.y >= canvas.height/2 - 40) phase="fry";
   } else if (phase==="fry") {
     setTimeout(()=>phase="fall", 500);
   } else if (phase==="fall") {
-    hato.y += 6;
-    if (hato.y > canvas.height) phase="fade";
+    hato.y += 4;
+    if (hato.y>canvas.height) phase="fade";
   } else if (phase==="fade") {
     fadeOpacity -= 0.02;
-    if(fadeOpacity <=0) phase="pile";
+    if(fadeOpacity<=0) phase="pile";
   }
 }
 
 function draw() {
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
-  // オレンジ火花（背面）
+  // 火花（背面）
   for(let i=0;i<20;i++){
-    ctx.fillStyle = `rgba(255,165,0,${Math.random()*0.6})`;
-    ctx.fillRect(Math.random()*canvas.width, canvas.height/2 - 20 + Math.random()*40, 3, 3);
+    ctx.fillStyle=`rgba(255,165,0,${Math.random()*0.6})`;
+    ctx.fillRect(Math.random()*canvas.width, canvas.height/2-20+Math.random()*40, 3,3);
   }
 
   // 灰色棒（前面・細め）
-  ctx.globalAlpha = fadeOpacity;
-  ctx.fillStyle = "#555";
-  ctx.fillRect(0, canvas.height/2 - 10, canvas.width, 20);
-  ctx.globalAlpha = 1;
+  ctx.globalAlpha=fadeOpacity;
+  ctx.fillStyle="#555";
+  ctx.fillRect(canvas.width/2-150, canvas.height/2-10, 300, 20);
+  ctx.globalAlpha=1;
 
   // 製造ラインの鳩
   if(phase==="drop" || phase==="fry" || phase==="fall") {
-    const img = (phase==="fry" || phase==="fall") ? hatoAgeImg : hatoImg;
-    ctx.drawImage(img, hato.x, hato.y, hato.size, hato.size);
+    const img=(phase==="fry" || phase==="fall")? hatoAgeImg:hatoImg;
+    ctx.drawImage(img,hato.x,hato.y,hato.size,hato.size);
   }
 
   // 山積み
-  for(let p of pile) {
-    ctx.drawImage(hatoAgeImg, p.x, p.y, p.size, p.size);
+  for(let p of pile){
+    ctx.drawImage(hatoAgeImg,p.x,p.y,p.size,p.size);
   }
 
-  // 落下中の鳩
-  for(let f of falling) {
-    ctx.drawImage(hatoAgeImg, f.x, f.y, f.size, f.size);
+  // 落下中
+  for(let f of falling){
+    ctx.drawImage(hatoAgeImg,f.x,f.y,f.size,f.size);
   }
 
-  // メッセージ
-  if(pile.length >= count){
-    message.textContent = `🎉 はとあげ完成！(${pile.length}人) 🎉`;
-  } else {
-    message.textContent = `現在 ${pile.length}/${count} 人 → はとあげ ${pile.length}個`;
-  }
+  // 表示
+  message.textContent = `現在の人数: ${count}/1000 はとあげ落ちてきた数 ${fallenCount} 個`;
 
   requestAnimationFrame(loop);
 }
 
-function loop() {
-  update();
-  draw();
-}
+function loop(){ update(); draw(); }
 loop();
 </script>
 </body>
