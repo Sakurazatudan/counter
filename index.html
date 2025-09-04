@@ -42,6 +42,7 @@ let fadeOpacity = 1.0;
 let hato = { x: canvas.width/2-32, y: -80, size:64 };
 let pile = [];
 let falling = [];
+let particles = [];
 
 let fallingInterval = null;
 
@@ -57,6 +58,28 @@ async function fetchCount() {
   }
 }
 fetchCount();
+
+// パーティクル生成
+function createParticle(x, y) {
+  particles.push({
+    x, y,
+    vx: (Math.random()-0.5)*2,
+    vy: -Math.random()*2,
+    alpha: 1.0,
+    size: 3 + Math.random()*2
+  });
+}
+
+// パーティクル更新
+function updateParticles() {
+  for(let i=particles.length-1;i>=0;i--){
+    let p = particles[i];
+    p.x += p.vx;
+    p.y += p.vy;
+    p.alpha -= 0.01;
+    if(p.alpha <=0) particles.splice(i,1);
+  }
+}
 
 // 落下するはとあげを少しずつ生成（最大100個）
 function spawnFalling() {
@@ -77,22 +100,22 @@ function spawnFalling() {
 
 function update() {
   // 製造ラインの更新
-  if (phase === "drop") hato.y += 2;
-  else if (phase === "fry") setTimeout(()=>phase="fall",500);
-  else if (phase === "fall") { 
-    hato.y += 3; 
-    if(hato.y > canvas.height) phase="fade";
+  if(phase === "drop") hato.y += 2;
+  else if(phase === "fry") setTimeout(()=>phase="fall",500);
+  else if(phase === "fall") {
+    hato.y += 3;
+    createParticle(hato.x+hato.size/2, hato.y+hato.size/2); // 火花生成
+    if(hato.y>canvas.height) phase="fade";
   }
-  else if (phase === "fade") {
-    fadeOpacity -= 0.02;
-    if(fadeOpacity <= 0){
+  else if(phase==="fade"){
+    fadeOpacity -=0.02;
+    if(fadeOpacity <=0){
       phase="pile";
-      // 製造ライン終了 → 人数分落下開始
       fallingInterval = setInterval(spawnFalling,1000);
     }
   }
 
-  // 人数分落下処理
+  // 落下処理
   for (let i=falling.length-1; i>=0; i--) {
     let f = falling[i];
     f.y += f.speed;
@@ -110,15 +133,17 @@ function update() {
       falling.splice(i,1);
     }
   }
+
+  updateParticles();
 }
 
 function draw() {
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
-  // オレンジ火花（背面）
-  for(let i=0;i<20;i++){
-    ctx.fillStyle=`rgba(255,165,0,${Math.random()*0.6})`;
-    ctx.fillRect(Math.random()*canvas.width, canvas.height/2-20+Math.random()*40, 3,3);
+  // パーティクル描画
+  for(let p of particles){
+    ctx.fillStyle=`rgba(255,165,0,${p.alpha})`;
+    ctx.fillRect(p.x,p.y,p.size,p.size);
   }
 
   // 灰色棒（前面・フェードアウト）
