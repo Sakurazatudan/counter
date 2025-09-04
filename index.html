@@ -58,15 +58,16 @@ async function fetchCount() {
 }
 fetchCount();
 
-// 落下するはとあげを少しずつ生成（ゆっくり）
+// 落下するはとあげを少しずつ生成（最大100個）
 function spawnFalling() {
-  if (pile.length + falling.length < count) {
+  const maxFalling = Math.min(count, 100);
+  if (pile.length + falling.length < maxFalling) {
     const margin = 50;
     falling.push({
       x: canvas.width/2 + (Math.random()*(canvas.width/2-margin*2)- (canvas.width/4-margin)), // 画面内
       y: -50,
       size: 64,
-      speed: 2 + Math.random()*1 // ゆっくり
+      speed: 2 + Math.random()*1
     });
     fallenCount++;
   } else {
