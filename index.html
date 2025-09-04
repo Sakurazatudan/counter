@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>はとあげ製造ライン+山積み</title>
+<title>はとあげ山積み</title>
 <style>
 body { margin:0; overflow:hidden; background:#87CEEB; }
 canvas { display:block; }
@@ -22,111 +22,82 @@ canvas { display:block; }
 <div id="message"></div>
 <canvas id="canvas"></canvas>
 <script>
-const canvas = document.getElementById('canvas');
-const ctx = canvas.getContext('2d');
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-const message = document.getElementById('message');
+const message = document.getElementById("message");
 
 const hatoImg = new Image();
-hatoImg.src = 'hato.png';
+hatoImg.src = "hato.png";
 const hatoAgeImg = new Image();
-hatoAgeImg.src = 'hatoage_only.png';
+hatoAgeImg.src = "hatoage_only.png";
 
-let count = 0;   // JSONの人数
-let hato = { x: canvas.width/2 - 32, y: -80, size: 64, state: "raw" };
-let phase = "drop"; // drop → fry → fall → fade → pile
-let fadeOpacity = 1.0;
+let count = 150; // デモ用の人数。後でJSON fetchに置き換え可
+let pile = [];   // 山に積まれたはとあげ
+let falling = []; // 落下中のはとあげ
 
-// 人数を取得
-async function updateCount() {
-  try {
-    const res = await fetch("member_count.json");
-    const data = await res.json();
-    count = Math.min(data.count, 1000);
-  } catch (e) {
-    console.error(e);
-    count = 120; // デモ用仮値
+// 1秒に1個ずつ落とす
+setInterval(() => {
+  if (pile.length + falling.length < count) {
+    falling.push({
+      x: canvas.width/2 + (Math.random()*100-50), // ランダムに左右ズレ
+      y: -50,
+      size: 48,
+      speed: 5 + Math.random()*2
+    });
+  }
+}, 200);
+
+// 更新
+function update() {
+  // 落下処理
+  for (let i=falling.length-1; i>=0; i--) {
+    let f = falling[i];
+    f.y += f.speed;
+    if (f.y > canvas.height-80 - pile.length*0.2) { 
+      // 着地 → 山に追加
+      pile.push({
+        x: f.x + (Math.random()*20-10),
+        y: canvas.height-80 - (pile.length*0.2), // 高さに応じて積もる
+        size: f.size
+      });
+      falling.splice(i,1);
+    }
   }
 }
-updateCount();
 
+// 描画
 function draw() {
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
-  if (phase!=="pile") {
-    // 🔥オレンジ火花（背面）
-    for(let i=0;i<30;i++){
-      ctx.fillStyle = `rgba(255,165,0,${Math.random()*0.6})`;
-      ctx.fillRect(Math.random()*canvas.width, canvas.height/2 - 20 + Math.random()*40, 3, 3);
-    }
-    // 灰色の棒（前面・細め）
-    ctx.globalAlpha = fadeOpacity;
-    ctx.fillStyle = "#555";
-    ctx.fillRect(0, canvas.height/2 - 10, canvas.width, 20);
-    ctx.globalAlpha = 1;
+  // 山積み
+  for (let p of pile) {
+    ctx.drawImage(hatoAgeImg, p.x, p.y, p.size, p.size);
   }
 
-  if (phase==="drop") {
-    hato.y += 5;
-    ctx.drawImage(hatoImg, hato.x, hato.y, hato.size, hato.size);
-    if (hato.y >= canvas.height/2 - 40) {
-      phase = "fry";
-    }
-
-  } else if (phase==="fry") {
-    ctx.drawImage(hatoAgeImg, hato.x, hato.y, hato.size, hato.size);
-    setTimeout(()=>{ phase="fall"; }, 500);
-
-  } else if (phase==="fall") {
-    hato.y += 6;
-    ctx.drawImage(hatoAgeImg, hato.x, hato.y, hato.size, hato.size);
-    if (hato.y > canvas.height) {
-      phase = "fade";
-    }
-
-  } else if (phase==="fade") {
-    fadeOpacity -= 0.02;
-    ctx.globalAlpha = fadeOpacity;
-    ctx.fillStyle = "#555";
-    ctx.fillRect(0, canvas.height/2 - 10, canvas.width, 20);
-    ctx.globalAlpha = 1;
-    if (fadeOpacity<=0) {
-      phase="pile";
-    }
-
-  } else if (phase==="pile") {
-    // 📦 二等辺三角形に山積み
-    const size = 48; // 山積みサイズ（大きめ）
-    const baseY = canvas.height - 80;
-    const maxPerRow = Math.floor(Math.sqrt(count*2)); // 三角形の行数を決定
-    let placed = 0;
-
-    for (let row=0; row<maxPerRow; row++) {
-      const numInRow = row+1;
-      if (placed + numInRow > count) break;
-      const startX = canvas.width/2 - (numInRow * size)/2;
-      const y = baseY - row * (size*0.9);
-      for (let col=0; col<numInRow; col++) {
-        if (placed >= count) break;
-        const x = startX + col * size;
-        ctx.drawImage(hatoAgeImg, x, y, size, size);
-        placed++;
-      }
-    }
-
-    // メッセージ
-    if(count>=1000){
-      message.textContent="🎉 はとあげ完成！ 🎉";
-    } else {
-      message.textContent=`現在 ${count} 人 → はとあげ ${count}個`;
-    }
+  // 落下中
+  for (let f of falling) {
+    ctx.drawImage(hatoAgeImg, f.x, f.y, f.size, f.size);
   }
 
-  requestAnimationFrame(draw);
+  // メッセージ
+  if (pile.length >= count) {
+    message.textContent = `🎉 はとあげ完成！(${pile.length}人) 🎉`;
+  } else {
+    message.textContent = `現在 ${pile.length}/${count} 人 → はとあげ ${pile.length}個`;
+  }
+
+  requestAnimationFrame(loop);
 }
-draw();
+
+// ループ
+function loop() {
+  update();
+  draw();
+}
+loop();
 </script>
 </body>
 </html>
