@@ -2,13 +2,24 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>桜落下アニメ</title>
+<title>はとあげ製造ライン+山積み</title>
 <style>
-  body { margin:0; overflow:hidden; background:#87CEEB; }
-  canvas { display:block; }
+body { margin:0; overflow:hidden; background:#87CEEB; }
+canvas { display:block; }
+#message {
+  position:absolute;
+  top:20px;
+  width:100%;
+  text-align:center;
+  font-size:2em;
+  color:#fff;
+  font-family:sans-serif;
+  text-shadow: 1px 1px 3px #000;
+}
 </style>
 </head>
 <body>
+<div id="message"></div>
 <canvas id="canvas"></canvas>
 <script>
 const canvas = document.getElementById('canvas');
@@ -16,24 +27,99 @@ const ctx = canvas.getContext('2d');
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-const petals = [];
-const maxPetals = 200;
+const message = document.getElementById('message');
 
-// 背景の木画像
-const treeImg = new Image();
-treeImg.src = 'tree.png'; // 自分で用意する木の画像
+const hatoImg = new Image();
+hatoImg.src = 'hato.png';
+const hatoAgeImg = new Image();
+hatoAgeImg.src = 'hatoage_only.png';
 
-// 花びら画像
-const petalImg = new Image();
-petalImg.src = 'petal.png'; // 自分で用意する花びら画像
+let count = 0;   // JSONの人数
+let hato = { x: canvas.width/2 - 16, y: -50, state: "raw" };
+let phase = "drop"; // drop → fry → fall → fade → pile
+let fadeOpacity = 1.0;
 
-// 花びら生成
-function spawnPetal() {
-    const p = {
-        x: Math.random() * canvas.width,
-        y: -20,
-        size: Math.random()*20 + 10,
-        speed: Math.random()*1 + 0.5,
+// 人数を取得
+async function updateCount() {
+  try {
+    const res = await fetch("member_count.json");
+    const data = await res.json();
+    count = Math.min(data.count, 1000);
+  } catch (e) {
+    console.error(e);
+    count = 123; // デモ用仮値
+  }
+}
+updateCount();
+
+function draw() {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  if (phase!=="pile") {
+    // 製造ライン（灰色＋火花）
+    ctx.globalAlpha = fadeOpacity;
+    ctx.fillStyle = "#555";
+    ctx.fillRect(0, canvas.height/2 - 20, canvas.width, 40);
+    ctx.globalAlpha = 1;
+    for(let i=0;i<20;i++){
+      ctx.fillStyle = `rgba(255,165,0,${Math.random()})`;
+      ctx.fillRect(Math.random()*canvas.width, canvas.height/2 - 20 + Math.random()*40, 2, 2);
+    }
+  }
+
+  if (phase==="drop") {
+    hato.y += 4;
+    ctx.drawImage(hatoImg, hato.x, hato.y, 32, 32);
+    if (hato.y >= canvas.height/2 - 40) {
+      phase = "fry";
+    }
+
+  } else if (phase==="fry") {
+    ctx.drawImage(hatoAgeImg, hato.x, hato.y, 32, 32);
+    setTimeout(()=>{ phase="fall"; }, 500);
+
+  } else if (phase==="fall") {
+    hato.y += 5;
+    ctx.drawImage(hatoAgeImg, hato.x, hato.y, 32, 32);
+    if (hato.y > canvas.height) {
+      phase = "fade";
+    }
+
+  } else if (phase==="fade") {
+    fadeOpacity -= 0.02;
+    ctx.globalAlpha = fadeOpacity;
+    ctx.fillStyle = "#555";
+    ctx.fillRect(0, canvas.height/2 - 20, canvas.width, 40);
+    ctx.globalAlpha = 1;
+    if (fadeOpacity<=0) {
+      phase="pile";
+    }
+
+  } else if (phase==="pile") {
+    // 山積み
+    const baseY = canvas.height - 150;
+    const size = 32;
+    for(let i=0;i<count;i++){
+      const layer = Math.floor(i / 20);
+      const offsetX = (i % 20) * (size+2) - (20*(size+2))/2;
+      const x = canvas.width/2 + offsetX + Math.random()*3;
+      const y = baseY - layer * (size/1.5) - Math.random()*3;
+      ctx.drawImage(hatoAgeImg, x, y, size, size);
+    }
+    // メッセージ
+    if(count>=1000){
+      message.textContent="🎉 はとあげ完成！ 🎉";
+    } else {
+      message.textContent=`現在 ${count} 人 → はとあげ ${count}個`;
+    }
+  }
+
+  requestAnimationFrame(draw);
+}
+draw();
+</script>
+</body>
+</html>
         angle: Math.random()*Math.PI*2,
         angularSpeed: (Math.random()-0.5)*0.02
     };
