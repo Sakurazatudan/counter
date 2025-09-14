@@ -5,7 +5,7 @@ async function fillTank() {
     const res = await fetch(url);
     const data = await res.json();
 
-    const number = data.value; // JSON内の数字
+    const number = data.count; // JSON内の数字
     let ratio = number * 0.1; // 0.1倍 → 900なら90%
     if (ratio > 100) ratio = 100; // 上限100%
     
