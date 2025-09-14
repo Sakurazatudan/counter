@@ -18,21 +18,25 @@ async function fillTank() {
 
     // 波アニメーション
     let waveOffset = 0;
-    function animateWave() {
-      const waveHeight = 10; // 波の高さ
-      const waveLength = 50; // 波の幅
-      const d = `
-        M0,${waterY} 
-        Q${waveLength/2},${waterY + Math.sin(waveOffset)*waveHeight} ${waveLength},${waterY} 
-        T200,${waterY} 
-        L200,400 L0,400 Z
-      `;
-      path.setAttribute('d', d);
-      waveOffset += 0.1;
-      requestAnimationFrame(animateWave);
-    }
+   // 波アニメーション（小さく、ゆっくり）
+let waveOffset = 0;
+function animateWave() {
+  const waveHeight = 5; // 波の高さを小さく
+  const waveLength = 80; // 波の幅を長くしてゆったり感
+  const speed = 0.02; // 波の進むスピードを遅く
+  const d = `
+    M0,${waterY} 
+    Q${waveLength/2},${waterY + Math.sin(waveOffset)*waveHeight} ${waveLength},${waterY} 
+    T200,${waterY} 
+    L200,400 L0,400 Z
+  `;
+  path.setAttribute('d', d);
+  waveOffset += speed;
+  requestAnimationFrame(animateWave);
+}
 
-    animateWave();
+animateWave();
+
 
   } catch (err) {
     console.error('JSON取得エラー:', err);
